@@ -1,5 +1,6 @@
 # Dnsmasq to Unbound
 
+[![Build](https://github.com/chall37/dnsmasq-to-unbound/actions/workflows/build.yml/badge.svg)](https://github.com/chall37/dnsmasq-to-unbound/actions/workflows/build.yml)
 [![CI](https://github.com/chall37/dnsmasq-to-unbound/actions/workflows/ci.yml/badge.svg)](https://github.com/chall37/dnsmasq-to-unbound/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/chall37/dnsmasq-to-unbound/actions/workflows/codeql.yml/badge.svg)](https://github.com/chall37/dnsmasq-to-unbound/actions/workflows/codeql.yml)
 [![License](https://img.shields.io/badge/License-BSD_2--Clause-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
