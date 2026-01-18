@@ -1,0 +1,181 @@
+name: CI
+
+on:
+  push:
+  pull_request_target:
+
+jobs:
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: pip install pycodestyle
+
+      - name: pycodestyle (E501 ignored)
+        run: pycodestyle --ignore=E501 --show-source --show-pep8 src/
+
+      - name: Check shebangs
+        run: |
+          status=0
+          for f in $(find src/ -name "*.py" -type f); do
+            if ! head -1 "$f" | grep -q '^#!'; then
+              echo "ERROR: Missing shebang in $f"
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Check executable permissions
+        run: |
+          status=0
+          for f in $(find src/opnsense/scripts -name "*.py" -type f 2>/dev/null); do
+            if [ ! -x "$f" ]; then
+              echo "ERROR: $f is not executable"
+              status=1
+            fi
+          done
+          exit $status
+
+  php:
+    name: PHP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Syntax check
+        run: |
+          status=0
+          for f in $(find src/ -name "*.php" -type f); do
+            if ! php -l "$f"; then
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Check opening tags
+        run: |
+          status=0
+          for f in $(find src/ -name "*.php" -type f); do
+            if head -1 "$f" | grep -q '^<?php'; then
+              :
+            else
+              echo "ERROR: $f should start with <?php"
+              status=1
+            fi
+          done
+          exit $status
+
+  shell:
+    name: Shell
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Syntax check (sh -n)
+        run: |
+          status=0
+          for f in $(find src/ -name "*.sh" -type f); do
+            if ! sh -n "$f"; then
+              status=1
+            fi
+          done
+          for f in src/etc/rc.d/*; do
+            [ -f "$f" ] || continue
+            if ! sh -n "$f"; then
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Shellcheck
+        run: |
+          find src/ -name "*.sh" -type f -exec shellcheck -S warning {} + || true
+          for f in src/etc/rc.d/*; do
+            [ -f "$f" ] && shellcheck -S warning "$f" || true
+          done
+
+      - name: Check executable permissions
+        run: |
+          status=0
+          for f in src/etc/rc.d/*; do
+            [ -f "$f" ] || continue
+            if [ ! -x "$f" ]; then
+              echo "ERROR: $f is not executable"
+              status=1
+            fi
+          done
+          exit $status
+
+  xml:
+    name: XML
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install xmllint
+        run: sudo apt-get install -y libxml2-utils
+
+      - name: Validate XML
+        run: |
+          status=0
+          for f in $(find src/ -name "*.xml" -type f); do
+            if ! xmllint --noout "$f" 2>&1; then
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Check well-formed structure
+        run: |
+          for f in $(find src/ -name "*.xml" -type f); do
+            echo "Checking $f"
+            xmllint --format "$f" > /dev/null
+          done
+
+  templates:
+    name: Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check Volt templates exist
+        run: |
+          if [ -d src/opnsense/mvc/app/views ]; then
+            find src/opnsense/mvc/app/views -name "*.volt" -type f | head -5
+            echo "Found $(find src/opnsense/mvc/app/views -name "*.volt" -type f | wc -l) Volt template(s)"
+          fi
+
+      - name: Check configd templates
+        run: |
+          if [ -d src/opnsense/service/templates ]; then
+            for f in $(find src/opnsense/service/templates -type f -name "+TARGETS"); do
+              echo "Checking $f"
+              cat "$f"
+            done
+          fi
