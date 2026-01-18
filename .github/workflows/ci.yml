@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request_target:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linters
+        run: |
+          pip install pycodestyle
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils php-cli
+
+      - name: Python style (pycodestyle)
+        run: pycodestyle --ignore=E501 src/
+
+      - name: Shell syntax check
+        run: |
+          find src/ -name "*.sh" -type f | while read f; do
+            sh -n "$f"
+          done
+          for f in src/etc/rc.d/*; do
+            [ -f "$f" ] && sh -n "$f"
+          done
+
+      - name: XML validation
+        run: find src/ -name "*.xml" -type f -exec xmllint --noout {} \;
+
+      - name: PHP syntax check
+        run: find src/ -name "*.php" -type f -exec php -l {} \;
