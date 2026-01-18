@@ -1,12 +1,20 @@
 name: Build
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Version override (leave empty for Makefile version)'
         required: false
         default: ''
+      create_release:
+        description: 'Create a GitHub release'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -47,10 +55,15 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          cd opnsense-plugins/dns/dnsmasq-to-unbound
-          if [ -n "${{ github.event.inputs.version }}" ]; then
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # Tag push: use tag name (strip 'v' prefix)
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            # Manual override
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
+            # Default: from Makefile
+            cd opnsense-plugins/dns/dnsmasq-to-unbound
             VERSION=$(grep PLUGIN_VERSION Makefile | cut -d= -f2 | tr -d '\t ')
             REVISION=$(grep PLUGIN_REVISION Makefile | cut -d= -f2 | tr -d '\t ')
             echo "version=${VERSION}.${REVISION}" >> $GITHUB_OUTPUT
@@ -62,3 +75,12 @@ jobs:
           name: os-dnsmasq-to-unbound-${{ steps.version.outputs.version }}
           path: opnsense-plugins/dns/dnsmasq-to-unbound/work/pkg/*.pkg
           retention-days: 30
+
+      - name: Create release
+        if: github.ref_type == 'tag' || inputs.create_release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          name: v${{ steps.version.outputs.version }}
+          files: opnsense-plugins/dns/dnsmasq-to-unbound/work/pkg/*.pkg
+          generate_release_notes: true
