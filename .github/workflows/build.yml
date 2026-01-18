@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (leave empty for Makefile version)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Checkout opnsense/plugins (for Mk infrastructure)
+        uses: actions/checkout@v4
+        with:
+          repository: opnsense/plugins
+          path: opnsense-plugins
+          sparse-checkout: Mk
+          sparse-checkout-cone-mode: false
+
+      - name: Setup plugin in tree
+        run: |
+          mkdir -p opnsense-plugins/dns
+          mv plugin opnsense-plugins/dns/dnsmasq-to-unbound
+
+      - name: Build on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y gmake
+          run: |
+            cd opnsense-plugins/dns/dnsmasq-to-unbound
+            make package
+            ls -la work/pkg/
+
+      - name: Extract version
+        id: version
+        run: |
+          cd opnsense-plugins/dns/dnsmasq-to-unbound
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(grep PLUGIN_VERSION Makefile | cut -d= -f2 | tr -d '\t ')
+            REVISION=$(grep PLUGIN_REVISION Makefile | cut -d= -f2 | tr -d '\t ')
+            echo "version=${VERSION}.${REVISION}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: os-dnsmasq-to-unbound-${{ steps.version.outputs.version }}
+          path: opnsense-plugins/dns/dnsmasq-to-unbound/work/pkg/*.pkg
+          retention-days: 30
