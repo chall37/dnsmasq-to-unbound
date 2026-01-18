@@ -14,12 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: plugin
 
       - name: Checkout opnsense/plugins (for Mk infrastructure)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: opnsense/plugins
           path: opnsense-plugins
