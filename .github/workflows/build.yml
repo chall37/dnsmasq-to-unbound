@@ -74,7 +74,7 @@ jobs:
           fi
 
       - name: Upload package
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: os-dnsmasq-to-unbound-${{ steps.version.outputs.version }}
           path: opnsense-plugins/dns/dnsmasq-to-unbound/work/pkg/*.pkg
